@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Who's That Pokémon?</title>
+  <link rel="stylesheet" href="/src/style.css" />
+  <link rel="icon" type="image/gif" href="/favicon.ico">
+</head>
+
+<body>
+  <main class="container">
+    <h1>Who's That Pokémon?</h1>
+
+    <div class="card">
+      <img id="pokeImg" class="silhouette" alt="Mystery Pokémon" />
+    </div>
+
+    <form id="guessForm" autocomplete="off">
+      <input id="guessInput" type="text" placeholder="Type the name" required />
+      <button id="actionBtn" type="submit">Guess</button>
+    </form>
+
+    <p id="feedback"></p>
+    <p id="score">Consecutive correct: 0</p>
+  </main>
+
+  <script type="module" src="/src/main.js"></script>
+  
+</body>
+</html>
