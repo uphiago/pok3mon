@@ -1,0 +1,9 @@
+project_name = ""
+environment  = ""
+aws_region   = ""
+
+ami_id        = ""
+instance_type = ""
+
+ssh_allowed_cidr = ""
+ssh_public_key   = ""
