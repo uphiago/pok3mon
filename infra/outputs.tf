@@ -22,3 +22,8 @@ output "subnet_ids" {
   description = "Subnets default"
   value       = data.aws_subnets.default.ids
 }
+
+output "project_name" {
+  description = "Project name"
+  value       = var.project_name
+}
