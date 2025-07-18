@@ -1,0 +1,15 @@
+.git
+.github
+infra
+node_modules
+**/node_modules
+dist
+dist-ssr
+*.log
+*.tfstate*
+*.tfvars*
+.terraform*
+.DS_Store
+.vscode
+.idea
+.env
