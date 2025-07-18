@@ -27,6 +27,7 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+        working-directory: pok3mon
 
       - name: Run ESLint (JSON output)
         run: npm run lint:ci
@@ -35,7 +36,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: eslint-report
-          path: eslint-report.json
+          path: pok3mon/eslint-report.json
           retention-days: 7
 
       - name: Execute Vitest with coverage
