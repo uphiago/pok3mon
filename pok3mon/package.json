@@ -12,7 +12,7 @@
     "lint:ci": "eslint \"src/**/*.{js,jsx,ts,tsx}\" -f json -o eslint-report.json",
     "format":  "prettier --check .",
     "test":    "vitest run",
-    "test:ci": "vitest run --coverage --coverage.reporter=text --coverage.reporter=lcov --reporter=junit --outputFile=vitest-report.xml",
+    "test:ci": "vitest run --coverage --coverage.reporter=text --coverage.reporter=lcov --coverage.reporter=json-summary --reporter=json --outputFile=vitest-report.json",
     "coverage":"vitest run --coverage"
   },
   "devDependencies": {
