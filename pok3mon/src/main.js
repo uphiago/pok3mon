@@ -65,3 +65,5 @@ form.addEventListener('submit', async (e) => {
 });
 
 newRound().then(() => document.body.classList.add('loaded'));
+
+export { rand };
