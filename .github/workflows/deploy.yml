@@ -26,23 +26,12 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract image metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository }}
-          tags: |
-            type=ref,event=branch            # ghcr.io/owner/repo:main
-            type=semver,pattern={{version}}  # ghcr.io/owner/repo:1.2.3
-            type=sha                         # ghcr.io/owner/repo:sha-<commit>
-
       - name: Build & push image
         uses: docker/build-push-action@v5
         with:
           context: ./pok3mon
           file: ./pok3mon/Dockerfile
+          tags: ghcr.io/uphiago/pok3mon:latest
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
