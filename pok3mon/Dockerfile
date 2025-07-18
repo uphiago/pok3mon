@@ -2,7 +2,7 @@ FROM node:20-bullseye-slim AS build
 
 WORKDIR /app
 
-ARG BASE_PATH="/pok3mon/"
+ARG BASE_PATH="/"
 ENV BASE_PATH=${BASE_PATH}
 
 COPY package*.json ./
@@ -29,4 +29,4 @@ USER node
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "serve -s dist -l ${PORT} -p /pok3mon"]
+CMD ["sh", "-c", "serve -s dist -p ${PORT}"]

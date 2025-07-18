@@ -81,7 +81,7 @@ jobs:
         with:
           context: ./pok3mon
           file: ./pok3mon/Dockerfile
-          build-args: BASE_PATH=/
+          build-args: BASE_PATH=/pok3mon/
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
