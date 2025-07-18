@@ -32,6 +32,7 @@ jobs:
 
       - name: Run ESLint (JSON output)
         run: npm run lint:ci
+        working-directory: pok3mon
 
       - name: Upload ESLint report
         uses: actions/upload-artifact@v4
@@ -42,14 +43,15 @@ jobs:
 
       - name: Execute Vitest with coverage
         run: npm run test:ci
+        working-directory: pok3mon
 
       - name: Upload Vitest results and coverage
         uses: actions/upload-artifact@v4
         with:
           name: vitest-and-coverage
           path: |
-            vitest-report.xml
-            coverage/
+            pok3mon/vitest-report.xml
+            pok3mon/coverage/
           retention-days: 7
 
 # BUILD & PUSH
