@@ -48,9 +48,9 @@ jobs:
       - name: Upload Vitest results and coverage
         uses: actions/upload-artifact@v4
         with:
-          name: vitest-and-coverage
+          name: vitest-results
           path: |
-            pok3mon/vitest-report.xml
+            pok3mon/vitest-report.json
             pok3mon/coverage/
           retention-days: 7
 
@@ -81,6 +81,7 @@ jobs:
         with:
           context: ./pok3mon
           file: ./pok3mon/Dockerfile
+          build-args: BASE_PATH=/
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest

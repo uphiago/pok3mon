@@ -31,3 +31,4 @@ terraform.tfvars
 *.tfvars.json
 .terraform.lock.hcl.backup
 !terraform.tfvars.example
+vitest-report.json
