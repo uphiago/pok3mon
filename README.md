@@ -1,138 +1,180 @@
-# Pok3mon Platform Challenge - Infrastructure and CI/CD
+# Pok3mon Platform Challenge
 
-This repository contains a containerized Node.js application and its associated infrastructure and CI/CD pipeline, deployed on AWS. Below is a concise technical overview of the project setup, infrastructure, and deployment process.
+This repository demonstrates a Node.js application ("Pok3mon") deployed to an AWS EC2 instance using Docker and Docker Compose, with infrastructure provisioning via Terraform. The CI/CD pipeline is managed by GitHub Actions, which handles building, testing, pushing, and remotely deploying the container image.
 
-## Overview
+--------------------------------------------------------------------------------
+## 1. Overview
 
-- **Application**: A Node.js application running on port 3000, containerized using Docker.
-- **Infrastructure**: AWS-based infrastructure in `sa-east-1`, provisioned with Terraform, running two containers on an EC2 instance.
-- **Environments**: `development` and `staging`.
-- **CI/CD**: GitHub Actions pipelines for building, pushing Docker images to GitHub Container Registry (GHCR), and deploying to AWS EC2 via AWS Systems Manager (SSM).
-- **State Management**: Terraform state stored remotely in an S3 bucket (`pok3balde`) with versioning and locking enabled.
+- **Application**:  
+  A Node.js app designed to demonstrate a minimal front end, built in JavaScript and served on port 3000 within a container.
 
-## Repository Structure
+- **Infrastructure**:  
+  Provisioned in AWS (region: sa-east-1). Includes one EC2 instance (t3.micro) running Ubuntu 24.04, Docker, and Docker Compose.
 
-- `pok3mon/`: Node.js application source code.
-  - `package.json`, `package-lock.json`: Node.js dependencies.
-  - `src/`: Application source files (JavaScript/TypeScript).
-  - `Dockerfile`: Defines the Docker image build process.
-  - `docker-compose.yml`: Configures container deployment.
-- `.github/workflows/`: GitHub Actions workflows for CI/CD.
-- `terraform/`: Terraform configuration for AWS infrastructure.
+- **CI/CD**:  
+  Defined in GitHub Actions:  
+  1. Lint and test the code (ESLint + Vitest).  
+  2. Build and push a Docker image to GitHub Container Registry (GHCR).  
+  3. Deploy automatically to the EC2 instance using AWS Systems Manager (SSM) commands.
 
-## Infrastructure
+- **Reliability (SRE)**:  
+  - Suggestion of SLIs/SLOs such as:  
+    - (1) Availability: 99% uptime.  
+    - (2) Error rate: keep server errors <1% of total requests.  
+  - Basic observability: Docker logs on the EC2 instance, or ephemeral logs accessible via AWS SSM. For real-world usage, consider pushing logs to CloudWatch or another logging service.
 
-- **AWS Region**: `sa-east-1`
-- **EC2 Instance**:
-  - Type: `t3.micro`
-  - OS: Ubuntu 24.04 LTS
-  - Runs two containers: the `pok3mon` application and supporting services (defined in `docker-compose.yml`).
-- **Terraform**:
-  - Provisions EC2 instance and required resources.
-  - Remote state stored in S3 bucket `pok3balde` with versioning and DynamoDB lockfile for state management.
-  - Configuration located in `terraform/` directory.
+--------------------------------------------------------------------------------
+## 2. Repository Structure
 
-## CI/CD Pipeline
+- [pok3mon/](pok3mon/):  
+  - Node.js application code (e.g., "main.js"), tests, and static files.  
+  - [Dockerfile](pok3mon/Dockerfile): Multi-stage Docker build for production.  
+  - [docker-compose.yml](pok3mon/docker-compose.yml): Defines the "pok3mon" service, port mappings, and environment configuration.
 
-The CI/CD pipeline is defined in `.github/workflows/` and consists of three jobs: `quality`, `build-push`, and `deploy`. It triggers on push to `main`, pull requests, or manual dispatch.
+- [.github/workflows/](.github/workflows/):  
+  - GitHub Actions CI/CD definitions (build, test, push, deploy).
 
-### 1. Quality Job
-- **Runner**: `ubuntu-latest` (Ubuntu 24.04.2 LTS, runner version 2.326.0)
-- **Permissions**: Read-only for `contents`, `metadata`, `packages`.
-- **Steps**:
-  1. **Checkout**: Clones `uphiago/pok3mon` using `actions/checkout@v4` (version 4.2.2).
-  2. **Setup Node.js**: Configures Node.js 20.19.3 with npm caching (`actions/setup-node@v4`, version 4.4.0).
-  3. **Install Dependencies**: Runs `npm ci` in `pok3mon/` (304 packages, no vulnerabilities).
-  4. **Linting**: Runs ESLint (`npm run lint:ci`) on `src/**/*.{js,jsx,ts,tsx}`, outputs `eslint-report.json`.
-  5. **Testing**: Runs Vitest (`npm run test:ci`) with coverage (44.23% statements covered in `main.js`).
-  6. **Artifacts**: Uploads `eslint-report.json` and `vitest-report.json` with coverage files using `actions/upload-artifact@v4` (version 4.6.2).
+- [infra/](infra/):  
+  - Terraform configuration files (main.tf, variables.tf, outputs.tf) for AWS provisioning.  
+  - Example variable files (e.g., .tfvars.example) for referencing local overrides.
 
-### 2. Build-Push Job
-- **Runner**: `ubuntu-latest`
-- **Permissions**: Write for `packages`, read for `contents`, `metadata`.
-- **Steps**:
-  1. **Checkout**: Clones repository.
-  2. **Setup Buildx**: Initializes Docker Buildx (`docker/setup-buildx-action@v3`, version 3.11.1).
-  3. **Authenticate to GHCR**: Logs into `ghcr.io` using `docker/login-action@v3` (version 3.4.0) with `GITHUB_TOKEN`.
-  4. **Build and Push**: Builds and pushes Docker image using `docker/build-push-action@v5` (version 5.4.0):
-     - Context: `pok3mon/`
-     - Dockerfile: `pok3mon/Dockerfile`
-     - Build Arg: `BASE_PATH=/pok3mon/`
-     - Tags: `ghcr.io/uphiago/pok3mon:latest`, `ghcr.io/uphiago/pok3mon:sha-<commit-hash>`
-     - Cache: GitHub Actions cache (`type=gha,mode=max`).
-     - Base Images: `node:20-bullseye-slim` (build), `node:20-alpine` (runtime).
+--------------------------------------------------------------------------------
+## 3. Prerequisites
 
-### 3. Deploy Job
-- **Runner**: `ubuntu-latest`
-- **Permissions**: Read for `contents`, `packages`, write for `id-token`.
-- **Environment**: `development`
-- **Steps**:
-  1. **Configure AWS Credentials**: Uses `aws-actions/configure-aws-credentials@v4` with AWS access keys and region.
-  2. **Trigger SSM Command**: Sends a shell script to an EC2 instance via AWS SSM (`AWS-RunShellScript`):
-     - Downloads `docker-compose.yml` from the repository at the commit SHA.
-     - Logs into GHCR.
-     - Pulls and starts containers with `docker compose up -d --pull always`.
-     - Command ID and status are logged, with success confirmed.
-  3. **Error Handling**: Checks SSM command status, outputs logs, and fails on error.
+To replicate this environment, you will need:
 
-## Deployment Details
+- A GitHub account with permissions to push and configure GitHub Actions.  
+- AWS CLI configured with valid credentials (Access Key, Secret Key, default region).  
+- Terraform installed (compatible with version declared in the infra/ directory).  
+- Docker installed (including Docker Compose plugin or docker-compose installed separately).  
+- Node.js 20+ (for local testing if needed).
 
-- **Target**: Single EC2 instance in `sa-east-1`.
-- **Container**: Runs `ghcr.io/uphiago/pok3mon:sha-<commit-hash>` (e.g., `sha-5f4a566035d0ddeb8d54393474f2bedd98873e87`).
-- **Docker Compose**: Configures the `pok3mon` service and network (`11320_default`).
-- **Security**: AWS credentials and `GITHUB_TOKEN` are used securely (redacted in logs).
+--------------------------------------------------------------------------------
+## 4. Running Locally
 
-## Known Issues and Recommendations
+Below are two approaches to run the Pok3mon application on your local machine:
 
-- **Low Test Coverage**: 44.23% statement coverage in `main.js` (uncovered lines: 27–35, 38–64). Add tests to improve coverage.
-- **ESLint Validation**: No explicit failure on lint errors. Add exit code check for `npm run lint:ci`.
-- **Docker Security**: Unencrypted credentials warning in `/root/.docker/config.json`. Configure a credential helper (see [Docker Credential Store](https://docs.docker.com/go/credential-store/)).
-- **Build Optimization**: Enable `pull: true` in `docker/build-push-action` to ensure fresh base images.
-- **Deployment Scalability**: Single EC2 instance limits high availability. Consider AWS ECS/EKS for managed orchestration.
-- **Monitoring**: Enable CloudWatch logging for SSM commands and add application health checks.
+### 4.1 Node.js (Development Mode)
 
-## Getting Started
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/uphiago/pok3mon.git
+   cd pok3mon
+   ```
+2. Install dependencies:
+   ```bash
+   npm ci
+   ```
+3. Start the dev server:
+   ```bash
+   npm run dev
+   ```
+4. Access the app at http://localhost:3000
 
-1. **Prerequisites**:
-   - AWS account with credentials (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`).
-   - GitHub repository with `GITHUB_TOKEN` for GHCR access.
-   - Terraform installed for infrastructure provisioning.
-   - S3 bucket `pok3balde` and DynamoDB table for state management.
+### 4.2 Docker
 
-2. **Setup Infrastructure**:
+1. **Build** the image (run this also from /pok3mon/, where the `Dockerfile` lives):
+
+   ```bash
+   docker build -t pok3mon:latest .
+   ```
+
+2. **Start** the container, binding port 3000 on your host:
+
+   ```bash
+   docker run -d \
+    -p 3000:3000 \
+    --name pok3mon \
+    pok3mon:latest
+   ```
+
+3. Open **http://localhost:3000** in your browser.
+
+--------------------------------------------------------------------------------
+## 5. Provisioning AWS Infrastructure (Terraform)
+
+1. Navigate to the Terraform directory:
    ```bash
    cd terraform/
+   ```
+2. Initialize Terraform:
+   ```bash
    terraform init
+   ```
+   This downloads needed provider plugins and configures remote state if set up.
+3. Review changes:
+   ```bash
+   terraform plan
+   ```
+4. Apply changes (this actually creates resources in AWS):
+   ```bash
    terraform apply
    ```
-   Ensure `pok3balde` bucket and DynamoDB table are configured.
+5. After a successful apply, Terraform will output the newly created resources (e.g., `security_group_id`, `instance_id`, `instance_public_ip`). Note these for reference.
 
-3. **Run CI/CD**:
-   - Push to `main` or create a PR to trigger the pipeline.
-   - Monitor jobs in the GitHub Actions tab of the repository (`https://github.com/uphiago/pok3mon/actions`).
+--------------------------------------------------------------------------------
+## 6. CI/CD Pipeline (GitHub Actions)
 
-4. **Verify Deployment**:
-   - Check SSM command logs in AWS Console.
-   - Access the application on port 3000 of the EC2 instance’s public IP.
+A GitHub Actions workflow handles testing, building, publishing, and deploying the container. The main workflow can be found under [.github/workflows/deploy.yml](.github/workflows/deploy.yml), typically triggered on:
 
-## References
+- Push to the "main" branch  
+- Pull requests  
+- Manual dispatch from GitHub Actions tab
 
-- **Repository**: [uphiago/pok3mon](https://github.com/uphiago/pok3mon)
-- **Dockerfile**: [pok3mon/Dockerfile](pok3mon/Dockerfile)
-- **Docker Compose**: [pok3mon/docker-compose.yml](pok3mon/docker-compose.yml)
-- **Pipeline**: [.github/workflows/](.github/workflows/)
-- **Terraform**: [terraform/](terraform/)
-- **Runner Image**: [GitHub Runner Images](https://github.com/actions/runner-images/blob/ubuntu24/20250710.1/images/ubuntu/Ubuntu2404-Readme.md)
-- **Artifacts**:
-  - ESLint Report: [eslint-report](https://github.com/uphiago/pok3mon/actions/runs/16388631853/artifacts/3569490991)
-  - Vitest Results: [vitest-results](https://github.com/uphiago/pok3mon/actions/runs/16388631853/artifacts/3569491031)
+### 6.1 Job: quality
 
-## Contributing
+1. **Checkout**: Pulls the repository using actions/checkout@v4.  
+2. **Node.js Setup**: Uses actions/setup-node@v4 to install Node.js 20.x and set up npm cache.  
+3. **Install Dependencies**: Runs `npm ci` in the `pok3mon` folder.  
+4. **Lint**: Executes ESLint (`npm run lint:ci`) and produces an eslint-report.json artifact.  
+5. **Test**: Runs Vitest (`npm run test:ci`) with coverage, uploading coverage files as artifacts.
 
-- Submit issues or PRs to [uphiago/pok3mon](https://github.com/uphiago/pok3mon).
-- Ensure tests cover new code and pass linting.
-- Update `terraform/` for infrastructure changes and test locally before applying.
+### 6.2 Job: build-push
 
----
+1. **Docker Buildx**: Sets up a multi-platform build environment (docker/setup-buildx-action@v3).  
+2. **Login**: Authenticates to GHCR using docker/login-action@v3 with GITHUB_TOKEN.  
+3. **Build & Push**:  
+   - docker/build-push-action@v5 to build the Docker image from .\pok3mon\Dockerfile.  
+   - Tags: "latest" and "sha-<commit-hash>".  
+   - Pushes images to GHCR.  
 
-This documentation is designed to be concise, technical, and suitable for the GitHub README. It includes references to project-specific resources (e.g., repository, artifacts) and actionable guidance for setup and improvements. Let me know if you need adjustments or additional sections!
+### 6.3 Job: deploy
+
+1. **AWS Credentials**: Uses aws-actions/configure-aws-credentials@v4 with the necessary secrets.  
+2. **AWS SSM Command**:  
+   - Downloads the "docker-compose.yml" from the exact commit SHA in GitHub.  
+   - Logs into GHCR.  
+   - Runs `docker compose pull && docker compose up -d --pull always` on the remote EC2 instance via Systems Manager.  
+   - Monitors success/failure, outputs logs from SSM.
+
+--------------------------------------------------------------------------------
+## 7. Reliability (SRE) & Observability
+
+1. **Recommended SLIs/SLOs**:  
+   - Availability: target 99% container uptime per month.  
+   - Error Rate: keep 5xx errors under 1% of total requests.  
+
+2. **Logs**:  
+   - By default, you can check Docker logs on the EC2 instance using `docker logs <pok3mon-container-id>`.  
+   - Alternatively, you can attach CloudWatch or another logging solution for long-term analysis and alerting.
+
+3. **Alerts**:  
+   - Adding CloudWatch Alarms on CPU usage or container exit codes is straightforward.  
+   - For sophisticated monitoring (APM, traces), consider third-party services or more advanced AWS features (e.g., ECS, EKS, or CloudWatch Container Insights).
+
+--------------------------------------------------------------------------------
+## 8. Next Steps / Recommendations
+
+1. **Expand Test Coverage**: Current coverage is partial; add more Vitest tests to improve reliability.  
+2. **Production-Grade Deployment**: For high availability, we can also consider AWS ECS Fargate or EKS.  
+3. **Security**: Use a credential helper to avoid storing Docker credentials in plain text.  
+4. **Terraform Modularization**: Break out resources into smaller modules if the infrastructure grows complex.
+5. **Environment Replication**: Provision isolated copies of critical components for dev, stg and prod to guarantee environment parity and avoid configuration drift (sorry about dev+stg, time gap issue xD).
+
+
+Thanks for checking out the Pok3mon Platform Challenge! 
+
+- Repository URL: <https://github.com/uphiago/pok3mon>  
+- Feel free to open issues/PRs with feedback or improvements.  
+
+--------------------------------------------------------------------------------
