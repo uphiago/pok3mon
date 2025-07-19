@@ -111,34 +111,34 @@ jobs:
       id: ssm
       shell: bash
       run: |
-        IMAGE_TAG="sha-${{ github.sha }}"
-        GIT_SHA="${{ github.sha }}"
-        REPO="uphiago/pok3mon"
+        set -euo pipefail
 
-        # single‑line JSON; embed variables with Bash double‑quotes
-        JSON_PAYLOAD="$(cat <<EOF
+        IMAGE_TAG="sha-${{ github.sha }}"
+        REPO="uphiago/pok3mon"
+        GIT_SHA="${{ github.sha }}"
+
+        PAYLOAD=$(mktemp)
+        cat >"$PAYLOAD" <<EOF
         {
           "commands": [
             "set -euo pipefail",
-            "curl -sSL --fail -o docker-compose.yml https://raw.githubusercontent.com/${REPO}/${GIT_SHA}/pok3mon/docker-compose.yml",
-            "echo \"${{ secrets.GHCR_PAT }}\" | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin",
+            "curl -sSf -o docker-compose.yml https://raw.githubusercontent.com/${REPO}/${GIT_SHA}/pok3mon/docker-compose.yml",
+            "echo '${{ secrets.GHCR_PAT }}' | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin",
             "export IMAGE_TAG=${IMAGE_TAG}",
             "docker compose pull",
             "docker compose up -d --pull always"
           ]
         }
         EOF
-        )"
 
         CMD_ID=$(aws ssm send-command \
           --instance-ids  "${{ secrets.INSTANCE_ID }}" \
           --document-name "AWS-RunShellScript" \
           --comment       "deploy pok3mon ${IMAGE_TAG}" \
-          --parameters    "${JSON_PAYLOAD}" \
-          --output text --query "Command.CommandId")
+          --parameters    file://"$PAYLOAD" \
+          --output text   --query 'Command.CommandId')
 
-        echo "COMMAND_ID=${CMD_ID}" >> "$GITHUB_OUTPUT"
-
+        echo "COMMAND_ID=${CMD_ID}" >>"$GITHUB_OUTPUT"
 
     - name: Wait for SSM to finish
       shell: bash
