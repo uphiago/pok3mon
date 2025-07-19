@@ -17,7 +17,7 @@ This repository demonstrates a Node.js application ("Pok3mon") deployed to an AW
   - Build and push a Docker image to GitHub Container Registry (GHCR).  
   - Deploy automatically to the EC2 instance using AWS Systems Manager (SSM) commands.
 
-- **Reliability (SRE)**:  
+- **Reliability**:  
   - Container resilience: Auto‑restarts the service after crashes or host reboots.
   - Log access: Inspect docker and compose logs on the EC2 host or remotely via AWS SSM.
   - Pipeline visibility: GitHub Actions displays build, test and deploy results; any failure stops the workflow, surfaces the error in the repo UI, and sends an email notification.
@@ -70,7 +70,7 @@ Below are two approaches to run the Pok3mon application on your local machine:
    ```
 4. Access the app at http://localhost:3000
 
-### 4.2 Docker
+### 4.2 Docker
 
 1. **Build** the image (run this also from /pok3mon/, where the `Dockerfile` lives):
 
@@ -147,26 +147,26 @@ A GitHub Actions workflow handles testing, building, publishing, and deploying t
    - Monitors success/failure, outputs logs from SSM.
 
 --------------------------------------------------------------------------------
-## 7. Reliability (SRE) & Observability
+## 7. Reliability & Observability (NEEDS REVIEW, NOT IMPLEMENTED)
 
-1. **Recommended SLIs/SLOs**:  
+1. **SLIs/SLOs**:   ATTENTION! NOT IMPLEMENTED YET
    - Availability: target 99% container uptime per month.  
    - Error Rate: keep 5xx errors under 1% of total requests.  
 
-2. **Logs**:  
-   - By default, you can check Docker logs on the EC2 instance using `docker logs <pok3mon-container-id>`.  
+2. **Logs**:
+   - By default, you can check Docker logs on the EC2 instance using `docker logs <pok3mon-container-id>`.
    - Alternatively, you can attach CloudWatch or another logging solution for long-term analysis and alerting.
 
-3. **Alerts**:  
-   - Adding CloudWatch Alarms on CPU usage or container exit codes is straightforward.  
+3. **Alerts**: ATTENTION! NOT IMPLEMENTED YET
+   - Adding CloudWatch Alarms on CPU usage or container exit codes.  
    - For sophisticated monitoring (APM, traces), consider third-party services or more advanced AWS features (e.g., ECS, EKS, or CloudWatch Container Insights).
 
 --------------------------------------------------------------------------------
 ## 8. Next Steps / Recommendations
 
-1. **Expand Test Coverage**: Current coverage is partial; add more Vitest tests to improve reliability.  
-2. **Production-Grade Deployment**: For high availability, we can also consider AWS ECS Fargate or EKS.  
-3. **Security**: Use a credential helper to avoid storing Docker credentials in plain text.  
+1. **Expand Test Coverage**: Current coverage is partial; add more Vitest tests to improve reliability.
+2. **Production-Grade Deployment**: For high availability, we can also consider AWS ECS Fargate or EKS.
+3. **Security**: Use a credential helper to avoid storing Docker credentials in plain text.
 4. **Terraform Modularization**: Break out resources into smaller modules if the infrastructure grows complex.
 5. **Environment Replication**: Provision isolated copies of critical components for dev, stg and prod to guarantee environment parity and avoid configuration drift (sorry about dev+stg, time gap issue xD).
 
