@@ -90,7 +90,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-# DEPLOY com DEBUG
+# DEPLOY
   deploy:
     needs: build-push
     runs-on: ubuntu-latest
@@ -109,15 +109,7 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region:            ${{ secrets.AWS_REGION }}
 
-    - name: Test AWS SSM connectivity
-      shell: bash
-      run: |
-        echo "Testing AWS connectivity and instance status..."
-        aws ssm describe-instance-information \
-          --instance-information-filter-list key=InstanceIds,valueSet=${{ secrets.INSTANCE_ID }} \
-          --query 'InstanceInformationList[0].{InstanceId:InstanceId,Status:PingStatus,LastPingDateTime:LastPingDateTime,AgentVersion:AgentVersion}'
-
-    - name: Trigger remote deploy via SSM with enhanced error handling
+    - name: Trigger remote deploy via SSM
       id: ssm
       shell: bash
       run: |
@@ -127,137 +119,76 @@ jobs:
         REPO="uphiago/pok3mon"
         GIT_SHA="${{ github.sha }}"
 
-        # Create payload with better error handling
         PAYLOAD=$(mktemp)
         cat >"$PAYLOAD" <<EOF
         {
           "commands": [
-            "set -euo pipefail",
-            "echo '=== Starting deployment at \$(date) ==='",
-            "echo 'Current directory: \$(pwd)'",
-            "echo 'Available disk space:'",
-            "df -h",
-            "echo 'Docker status:'",
-            "docker --version || echo 'Docker not found'",
-            "docker compose version || echo 'Docker Compose not found'",
-            "echo 'Downloading docker-compose.yml...'",
+            "#!/bin/bash",
+            "set -eu",
+            "echo 'Starting deployment...'",
             "curl -sSf -o docker-compose.yml https://raw.githubusercontent.com/${REPO}/${GIT_SHA}/pok3mon/docker-compose.yml",
-            "echo 'Docker compose file downloaded successfully'",
-            "cat docker-compose.yml",
-            "echo 'Logging into GHCR...'",
             "echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin",
-            "echo 'Login successful, setting IMAGE_TAG=${IMAGE_TAG}'",
             "export IMAGE_TAG=${IMAGE_TAG}",
-            "echo 'Pulling images...'",
             "docker compose pull",
-            "echo 'Starting containers...'",
             "docker compose up -d --pull always",
-            "echo 'Deployment completed successfully at \$(date)'",
-            "echo 'Running containers:'",
-            "docker compose ps"
+            "echo 'Deployment completed successfully'"
           ]
         }
         EOF
 
-        echo "Sending SSM command..."
         CMD_ID=$(aws ssm send-command \
           --instance-ids  "${{ secrets.INSTANCE_ID }}" \
           --document-name "AWS-RunShellScript" \
-          --comment       "deploy pok3mon ${IMAGE_TAG} with debug" \
+          --comment       "deploy pok3mon ${IMAGE_TAG}" \
           --parameters    file://"$PAYLOAD" \
           --timeout-seconds 300 \
           --output text   --query 'Command.CommandId')
 
-        echo "Command ID: ${CMD_ID}"
         echo "COMMAND_ID=${CMD_ID}" >>"$GITHUB_OUTPUT"
 
-    - name: Monitor SSM command execution
+    - name: Wait for SSM to finish with error handling
       shell: bash
       run: |
         CMD_ID="${{ steps.ssm.outputs.COMMAND_ID }}"
-        echo "Monitoring command execution: ${CMD_ID}"
         
-        # Wait for command to complete (with timeout)
-        timeout 300 aws ssm wait command-executed \
+        # Wait for command execution
+        if ! aws ssm wait command-executed \
           --instance-id "${{ secrets.INSTANCE_ID }}" \
-          --command-id  "${CMD_ID}" || true
-
-        # Get command status and output regardless of success/failure
-        echo "=== COMMAND STATUS ==="
-        aws ssm get-command-invocation \
-          --instance-id "${{ secrets.INSTANCE_ID }}" \
-          --command-id  "${CMD_ID}" \
-          --query '{Status:Status,StatusDetails:StatusDetails,StandardOutputContent:StandardOutputContent,StandardErrorContent:StandardErrorContent}' \
-          --output table
-
-    - name: Get detailed SSM command results
-      shell: bash
-      if: always()  # Run this step even if previous steps failed
-      run: |
-        CMD_ID="${{ steps.ssm.outputs.COMMAND_ID }}"
-        echo "=== DETAILED COMMAND OUTPUT ==="
+          --command-id  "${CMD_ID}"; then
+          echo "Command execution failed or timed out"
+        fi
         
-        # Get the full output
-        aws ssm get-command-invocation \
+        # Get detailed results
+        echo "=== DEPLOYMENT RESULTS ==="
+        RESULT=$(aws ssm get-command-invocation \
           --instance-id "${{ secrets.INSTANCE_ID }}" \
           --command-id  "${CMD_ID}" \
-          --output json > command_result.json
+          --output json)
         
-        # Show the JSON result
-        cat command_result.json | jq '.'
+        # Show the results
+        echo "$RESULT" | jq .
         
-        # Extract and show stdout
-        echo "=== STANDARD OUTPUT ==="
-        cat command_result.json | jq -r '.StandardOutputContent // "No stdout"'
+        # Extract status and outputs
+        STATUS=$(echo "$RESULT" | jq -r '.Status')
+        STDOUT=$(echo "$RESULT" | jq -r '.StandardOutputContent // ""')
+        STDERR=$(echo "$RESULT" | jq -r '.StandardErrorContent // ""')
         
-        # Extract and show stderr  
-        echo "=== STANDARD ERROR ==="
-        cat command_result.json | jq -r '.StandardErrorContent // "No stderr"'
+        echo "Status: $STATUS"
         
-        # Show status
-        STATUS=$(cat command_result.json | jq -r '.Status')
-        echo "=== FINAL STATUS: ${STATUS} ==="
+        if [ -n "$STDOUT" ]; then
+          echo "=== STDOUT ==="
+          echo "$STDOUT"
+        fi
         
-        # Exit with error if command failed
+        if [ -n "$STDERR" ]; then
+          echo "=== STDERR ==="
+          echo "$STDERR"
+        fi
+        
+        # Exit with error if deployment failed
         if [ "$STATUS" = "Failed" ]; then
-          echo "Command execution failed!"
+          echo "Deployment failed!"
           exit 1
         fi
-
-    - name: Verify deployment (if successful)
-      shell: bash
-      if: success()
-      run: |
-        echo "Verifying deployment..."
         
-        VERIFY_PAYLOAD=$(mktemp)
-        cat >"$VERIFY_PAYLOAD" <<EOF
-        {
-          "commands": [
-            "echo '=== Deployment Verification ==='",
-            "docker compose ps",
-            "docker compose logs --tail=50",
-            "echo '=== Container Health ==='",
-            "docker compose ps --format table"
-          ]
-        }
-        EOF
-
-        VERIFY_CMD_ID=$(aws ssm send-command \
-          --instance-ids  "${{ secrets.INSTANCE_ID }}" \
-          --document-name "AWS-RunShellScript" \
-          --comment       "verify pok3mon deployment" \
-          --parameters    file://"$VERIFY_PAYLOAD" \
-          --output text   --query 'Command.CommandId')
-
-        # Wait and show verification results
-        aws ssm wait command-executed \
-          --instance-id "${{ secrets.INSTANCE_ID }}" \
-          --command-id  "${VERIFY_CMD_ID}"
-        
-        echo "=== VERIFICATION RESULTS ==="
-        aws ssm get-command-invocation \
-          --instance-id "${{ secrets.INSTANCE_ID }}" \
-          --command-id  "${VERIFY_CMD_ID}" \
-          --query 'StandardOutputContent' \
-          --output text
+        echo "Deployment completed successfully!"
