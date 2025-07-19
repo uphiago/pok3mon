@@ -1,4 +1,4 @@
-name: Lint - Test - Build image
+name: Lint - Test - Build - Push
 
 on:
   push:
@@ -119,9 +119,10 @@ jobs:
           --parameters '{
             "commands": [
               "set -euo pipefail",
+              "export IMAGE_TAG='"$IMAGE_TAG"'",
               "cd /home/deploy/",
-              "sudo -u deploy IMAGE_TAG='"$IMAGE_TAG"' docker compose -f docker-compose.yml pull",
-              "sudo -u deploy IMAGE_TAG='"$IMAGE_TAG"' docker compose -f docker-compose.yml up -d --pull always"
+              "sudo -u deploy -E docker compose -f docker-compose.yml pull",
+              "sudo -u deploy -E docker compose -f docker-compose.yml up -d"
             ]
           }' \
           --output text --query "Command.CommandId")
