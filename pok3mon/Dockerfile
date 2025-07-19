@@ -2,8 +2,8 @@ FROM node:20-bullseye-slim AS build
 
 WORKDIR /app
 
-ARG BASE_PATH="/"
-ENV BASE_PATH=${BASE_PATH}
+# ARG BASE_PATH="/"
+# ENV BASE_PATH=${BASE_PATH}
 
 COPY package*.json ./
 

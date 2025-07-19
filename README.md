@@ -11,28 +11,27 @@ This repository demonstrates a Node.js application ("Pok3mon") deployed to an AW
 - **Infrastructure**:  
   Provisioned in AWS (region: sa-east-1). Includes one EC2 instance (t3.micro) running Ubuntu 24.04, Docker, and Docker Compose.
 
-- **CI/CD**:  
+- **CI/CD**:
   Defined in GitHub Actions:  
-  1. Lint and test the code (ESLint + Vitest).  
-  2. Build and push a Docker image to GitHub Container Registry (GHCR).  
-  3. Deploy automatically to the EC2 instance using AWS Systems Manager (SSM) commands.
+  - Lint and test the code (ESLint + Vitest).  
+  - Build and push a Docker image to GitHub Container Registry (GHCR).  
+  - Deploy automatically to the EC2 instance using AWS Systems Manager (SSM) commands.
 
 - **Reliability (SRE)**:  
-  - Suggestion of SLIs/SLOs such as:  
-    - (1) Availability: 99% uptime.  
-    - (2) Error rate: keep server errors <1% of total requests.  
-  - Basic observability: Docker logs on the EC2 instance, or ephemeral logs accessible via AWS SSM. For real-world usage, consider pushing logs to CloudWatch or another logging service.
+  - Container resilience: Auto‑restarts the service after crashes or host reboots.
+  - Log access: Inspect docker and compose logs on the EC2 host or remotely via AWS SSM.
+  - Pipeline visibility: GitHub Actions displays build, test and deploy results; any failure stops the workflow, surfaces the error in the repo UI, and sends an email notification.
 
 --------------------------------------------------------------------------------
 ## 2. Repository Structure
 
 - [pok3mon/](pok3mon/):  
-  - Node.js application code (e.g., "main.js"), tests, and static files.  
-  - [Dockerfile](pok3mon/Dockerfile): Multi-stage Docker build for production.  
+  - Node.js application code, tests, and static files.  
+  - [Dockerfile](pok3mon/Dockerfile): Multi-stage Docker build.  
   - [docker-compose.yml](pok3mon/docker-compose.yml): Defines the "pok3mon" service, port mappings, and environment configuration.
 
 - [.github/workflows/](.github/workflows/):  
-  - GitHub Actions CI/CD definitions (build, test, push, deploy).
+  - GitHub Actions CI/CD (build, test, push, deploy).
 
 - [infra/](infra/):  
   - Terraform configuration files (main.tf, variables.tf, outputs.tf) for AWS provisioning.  
@@ -123,10 +122,10 @@ A GitHub Actions workflow handles testing, building, publishing, and deploying t
 
 ### 6.1 Job: quality
 
-1. **Checkout**: Pulls the repository using actions/checkout@v4.  
-2. **Node.js Setup**: Uses actions/setup-node@v4 to install Node.js 20.x and set up npm cache.  
-3. **Install Dependencies**: Runs `npm ci` in the `pok3mon` folder.  
-4. **Lint**: Executes ESLint (`npm run lint:ci`) and produces an eslint-report.json artifact.  
+1. **Checkout**: Pulls the repository using actions/checkout@v4.
+2. **Node.js Setup**: Uses actions/setup-node@v4 to install Node.js 20.x and set up npm cache.
+3. **Install Dependencies**: Runs `npm ci` in the `pok3mon` folder.
+4. **Lint**: Executes ESLint (`npm run lint:ci`) and produces an eslint-report.json artifact.
 5. **Test**: Runs Vitest (`npm run test:ci`) with coverage, uploading coverage files as artifacts.
 
 ### 6.2 Job: build-push
