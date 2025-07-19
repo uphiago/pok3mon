@@ -75,7 +75,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ secrets.GH_TOKEN }}
 
       - name: Build and push container image
         uses: docker/build-push-action@v5
@@ -124,7 +124,7 @@ jobs:
           "commands": [
             "set -euo pipefail",
             "curl -sSf -o docker-compose.yml https://raw.githubusercontent.com/${REPO}/${GIT_SHA}/pok3mon/docker-compose.yml",
-            "echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin",            "export IMAGE_TAG=${IMAGE_TAG}",
+            "echo '${{ secrets.GH_TOKEN }}' | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin",            "export IMAGE_TAG=${IMAGE_TAG}",
             "docker compose pull",
             "docker compose up -d --pull always"
           ]
