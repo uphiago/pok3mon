@@ -112,6 +112,8 @@ jobs:
       shell: bash
       run: |
         IMAGE_TAG="sha-${{ github.sha }}"
+        GIT_SHA="${{ github.sha }}"
+        REPO="uphiago/pok3mon"
         CMD=$(aws ssm send-command \
           --instance-ids  "${{ secrets.INSTANCE_ID }}" \
           --document-name "AWS-RunShellScript" \
@@ -119,14 +121,19 @@ jobs:
           --parameters '{
             "commands": [
               "set -euo pipefail",
+
+              "curl -sSL --fail -o docker-compose.yml \
+                https://raw.githubusercontent.com/'"$REPO"'/'"$GIT_SHA"'/pok3mon/docker-compose.yml",
+
+              "echo \"${{ secrets.GHCR_PAT }}\" | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin",
+
               "export IMAGE_TAG='"$IMAGE_TAG"'",
-              "cd /home/deploy/",
-              "sudo -u deploy -E docker compose -f docker-compose.yml pull",
-              "sudo -u deploy -E docker compose -f docker-compose.yml up -d"
+              "docker compose pull",
+              "docker compose up -d --pull always"
             ]
           }' \
           --output text --query "Command.CommandId")
-        echo "COMMAND_ID=$CMD" | tee -a "$GITHUB_OUTPUT"
+        echo "COMMAND_ID=$CMD" >> "$GITHUB_OUTPUT"
 
     - name: Wait for SSM to finish
       shell: bash
