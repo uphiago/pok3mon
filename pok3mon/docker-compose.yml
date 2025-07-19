@@ -2,9 +2,17 @@ services:
   pok3mon:
     image: ghcr.io/uphiago/pok3mon:${IMAGE_TAG:-latest}
     container_name: pok3mon
+    pull_policy: always
+    restart: unless-stopped
+
     ports:
       - "3000:3000"
-    restart: unless-stopped
+
     environment:
-      NODE_ENV: development
-    pull_policy: always
+      NODE_ENV: production
+
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/pok3mon/index.html"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
