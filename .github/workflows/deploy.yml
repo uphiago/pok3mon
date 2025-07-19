@@ -88,3 +88,51 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+# DEPLOY
+  deploy:
+    needs: build-push
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    environment: development
+
+    steps:
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region:            ${{ secrets.AWS_REGION }}
+
+    - name: Trigger remote deploy via SSM
+      id: ssm
+      shell: bash
+      run: |
+        IMAGE_TAG="sha-${{ github.sha }}"
+        CMD=$(aws ssm send-command \
+          --instance-ids  "${{ secrets.INSTANCE_ID }}" \
+          --document-name "AWS-RunShellScript" \
+          --comment "deploy pok3mon $IMAGE_TAG" \
+          --parameters '{
+            "commands": [
+              "set -euo pipefail",
+              "cd /home/deploy/",
+              "sudo -u deploy IMAGE_TAG='"$IMAGE_TAG"' docker compose -f docker-compose.yml pull",
+              "sudo -u deploy IMAGE_TAG='"$IMAGE_TAG"' docker compose -f docker-compose.yml up -d --pull always"
+            ]
+          }' \
+          --output text --query "Command.CommandId")
+        echo "COMMAND_ID=$CMD" | tee -a "$GITHUB_OUTPUT"
+
+    - name: Wait for SSM to finish
+      shell: bash
+      run: |
+        aws ssm wait command-executed \
+          --instance-id "${{ secrets.INSTANCE_ID }}" \
+          --command-id  "${{ steps.ssm.outputs.COMMAND_ID }}"
+        aws ssm get-command-invocation \
+          --instance-id "${{ secrets.INSTANCE_ID }}" \
+          --command-id  "${{ steps.ssm.outputs.COMMAND_ID }}"
