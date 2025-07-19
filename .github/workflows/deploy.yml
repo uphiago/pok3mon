@@ -59,6 +59,7 @@ jobs:
     needs: quality # runs on successful lint + test
     runs-on: ubuntu-latest
     permissions:
+      id-token: write
       contents: read
       packages: write
 
@@ -123,8 +124,7 @@ jobs:
           "commands": [
             "set -euo pipefail",
             "curl -sSf -o docker-compose.yml https://raw.githubusercontent.com/${REPO}/${GIT_SHA}/pok3mon/docker-compose.yml",
-            "echo '${{ secrets.GHCR_PAT }}' | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin",
-            "export IMAGE_TAG=${IMAGE_TAG}",
+            "echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin",            "export IMAGE_TAG=${IMAGE_TAG}",
             "docker compose pull",
             "docker compose up -d --pull always"
           ]
