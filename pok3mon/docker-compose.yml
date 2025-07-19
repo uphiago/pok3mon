@@ -1,0 +1,9 @@
+services:
+  pok3mon:
+    image: ghcr.io/uphiago/pok3mon:${IMAGE_TAG:-latest}
+    container_name: pok3mon
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development

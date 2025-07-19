@@ -51,7 +51,7 @@ form.addEventListener('submit', async (e) => {
     btn.textContent = 'Next';
 
     fb.textContent = correct
-      ? 'You were right… but it was Pikachu'
+      ? 'You were right! It was Pikachu'
       : 'Wrong! It was Pikachu!';
     fb.className   = correct ? 'correct' : 'incorrect';
     streak         = correct ? streak + 1 : 0;
