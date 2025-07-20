@@ -2,7 +2,7 @@
 [![CI/CD](https://github.com/uphiago/pok3mon/actions/workflows/deploy.yml/badge.svg)](https://github.com/uphiago/pok3mon/actions/workflows/deploy.yml)
 
 
-This repository demonstrates a Node.js application ("Pok3mon") deployed to an AWS EC2 instance using Docker and Docker Compose, with infrastructure provisioning via Terraform. The CI/CD pipeline is managed by GitHub Actions, which handles building, testing, pushing, and remotely deploying the container image.
+This repository demonstrates a Node.js application ("Pok3mon") deployed to an AWS EC2 instance using Docker and Docker Compose, with infrastructure provisioning via Terraform. The CI/CD pipeline is managed by GitHub Actions, which handles linting, testing, building, pushing, and remotely deploying the container image.
 
 --------------------------------------------------------------------------------
 ## 1. Overview
@@ -11,7 +11,9 @@ This repository demonstrates a Node.js application ("Pok3mon") deployed to an AW
   A Node.js app designed to demonstrate a minimal front end, built in JavaScript and served on port 3000 within a container.
 
 - **Infrastructure**:  
-  Provisioned in AWS (region: sa-east-1). Includes one EC2 instance (t3.micro) running Ubuntu 24.04, Docker, and Docker Compose.
+  Provisioned in AWS (region: sa‑east‑1) via Terraform.  
+  The root configuration calls the module **`infra/modules/compute/`**,  
+  which creates the EC2 instance, security group, Elastic IP and CloudWatch resources.
 
 - **CI/CD**:
   Defined in GitHub Actions:  
@@ -36,19 +38,22 @@ This repository demonstrates a Node.js application ("Pok3mon") deployed to an AW
   - GitHub Actions CI/CD (build, test, push, deploy).
 
 - [infra/](infra/):  
-  - Terraform configuration files (main.tf, variables.tf, outputs.tf) for AWS provisioning.  
-  - Example variable files (e.g., .tfvars.example) for referencing local overrides.
+  - Root Terraform config (`main.tf`, `variables.tf`, `outputs.tf`) — backend, provider, module call.  
+  - [modules/compute/](infra/modules/compute/): self‑contained module with EC2, networking and CloudWatch resources.  
+  - Example variable files (`terraform.tfvars.example`) for local overrides.
 
 --------------------------------------------------------------------------------
 ## 3. Prerequisites
 
 To replicate this environment, you will need:
 
-- A GitHub account with permissions to push and configure GitHub Actions.  
-- AWS CLI configured with valid credentials (Access Key, Secret Key, default region).  
-- Terraform installed (compatible with version declared in the infra/ directory).  
-- Docker installed (including Docker Compose plugin or docker-compose installed separately).  
-- Node.js 20+ (for local testing if needed).
+| Requirement               | Details / Version |
+|---------------------------|-------------------|
+| **Terraform**            | ≥ 1.12 (AWS provider 6.x) |
+| **AWS CLI**              | Configured with a user/role that can manage EC2, SSM, S3, DynamoDB, CloudWatch |
+| **GitHub Secrets**       | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `INSTANCE_ID` |
+| **Docker + Compose**     | Docker ≥ 24.x (compose plugin) or docker‑compose ≥ 2.x |
+| **Node.js**              | 20 LTS (for optional local dev) |
 
 --------------------------------------------------------------------------------
 ## 4. Running Locally
@@ -77,7 +82,7 @@ Below are two approaches to run the Pok3mon application on your local machine:
 1. **Build** the image (run this also from /pok3mon/, where the `Dockerfile` lives):
 
    ```bash
-   docker build -t pok3mon:latest .
+   docker build -t pok3mon .
    ```
 
 2. **Start** the container, binding port 3000 on your host:
@@ -86,7 +91,7 @@ Below are two approaches to run the Pok3mon application on your local machine:
    docker run -d \
     -p 3000:3000 \
     --name pok3mon \
-    pok3mon:latest
+    pok3mon
    ```
 
 3. Open **http://localhost:3000** in your browser.
@@ -113,10 +118,12 @@ Below are two approaches to run the Pok3mon application on your local machine:
    ```
 5. After a successful apply, Terraform will output the newly created resources (e.g., `security_group_id`, `instance_id`, `instance_public_ip`). Note these for reference.
 
+> **State backend**: Terraform state is stored in an S3 bucket (`pok3balde`) with locking/versioning via DynamoDB table `pok3balde‑tf‑lock`.
+
 --------------------------------------------------------------------------------
 ## 6. CI/CD Pipeline (GitHub Actions)
 
-A GitHub Actions workflow handles testing, building, publishing, and deploying the container. The main workflow can be found under [.github/workflows/deploy.yml](.github/workflows/deploy.yml), typically triggered on:
+A GitHub Actions workflow handles linting, testing, building, publishing, and deploying the container. The main workflow can be found under [.github/workflows/deploy.yml](.github/workflows/deploy.yml), typically triggered on:
 
 - Push to the "main" branch  
 - Pull requests  
@@ -135,7 +142,7 @@ A GitHub Actions workflow handles testing, building, publishing, and deploying t
 1. **Docker Buildx**: Sets up a multi-platform build environment (docker/setup-buildx-action@v3).  
 2. **Login**: Authenticates to GHCR using docker/login-action@v3 with GITHUB_TOKEN.  
 3. **Build & Push**:  
-   - docker/build-push-action@v5 to build the Docker image from .\pok3mon\Dockerfile.  
+   - docker/build-push-action@v5 to build the Docker image from Dockerfile.  
    - Tags: "latest" and "sha-<commit-hash>".  
    - Pushes images to GHCR.  
 
@@ -147,6 +154,7 @@ A GitHub Actions workflow handles testing, building, publishing, and deploying t
    - Logs into GHCR.  
    - Runs `docker compose pull && docker compose up -d` on the remote EC2 instance via Systems Manager.  
    - Monitors success/failure, outputs logs from SSM.
+   - The workflow waits with `aws ssm wait command-executed`. If the command status is not **Success**, the job fails automatically.
 
 --------------------------------------------------------------------------------
 ## 7. Reliability & Observability
@@ -163,21 +171,15 @@ A GitHub Actions workflow handles testing, building, publishing, and deploying t
 
 - A **CloudWatch Logs Agent** ships container `stdout`/`stderr` to the log group  
   **/aws/ec2/pok3mon‑app**.
-- Quick Insights query examples:  
-  ```sql
-  -- Availability: count 2xx responses
-  fields @timestamp, @message
-  | filter @message like /Returned 2\d{2}/
-  | stats count() as GoodReq by bin(1m)```
 
 --------------------------------------------------------------------------------
 ## 8. Next Steps / Recommendations
 
-1. **Expand Test Coverage**: Current coverage is partial; add more Vitest tests to improve reliability.
-2. **Production-Grade Deployment**: For high availability, we can also consider AWS ECS Fargate or EKS.
-3. **Security**: Use a credential helper to avoid storing Docker credentials in plain text.
-4. **Terraform Modularization**: Break out resources into smaller modules if the infrastructure grows complex.
-5. **Environment Replication**: Provision isolated copies of critical components for dev, stg and prod to guarantee environment parity and avoid configuration drift (sorry about dev+stg, time gap issue xD).
+
+1. **Expand Test Coverage** - add more Vitest suites and coverage thresholds.  
+2. **Production Deployment** - consider AWS ECS Fargate or EKS for horizontal scaling.  
+3. **SLO Dashboard** - surface the log‑based metrics in a CloudWatch or Grafana dashboard for live tracking.
+4. **Environment Replication**: Provision isolated copies of critical components for dev, stg and prod to guarantee environment parity and avoid configuration drift (sorry about dev+stg, time gap issue xD).
 
 
 Thanks for checking out the Pok3mon Platform Challenge! 
