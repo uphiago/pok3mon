@@ -1,0 +1,3 @@
+{"total": {"lines":{"total":52,"covered":23,"skipped":0,"pct":44.23},"statements":{"total":52,"covered":23,"skipped":0,"pct":44.23},"functions":{"total":5,"covered":4,"skipped":0,"pct":80},"branches":{"total":5,"covered":4,"skipped":0,"pct":80},"branchesTrue":{"total":0,"covered":0,"skipped":0,"pct":"Unknown"}}
+,"/home/iceteash/Repositories/hous3/pok3mon/src/main.js": {"lines":{"total":52,"covered":23,"skipped":0,"pct":44.23},"functions":{"total":5,"covered":4,"skipped":0,"pct":80},"statements":{"total":52,"covered":23,"skipped":0,"pct":44.23},"branches":{"total":5,"covered":4,"skipped":0,"pct":80}}
+}
