@@ -183,7 +183,7 @@ A GitHub Actions workflow handles linting, testing, building, publishing, and de
 Thanks for checking out the Pok3mon Platform Challenge!
 
 - Repository URL: <https://github.com/uphiago/pok3mon>
-- Instance Public: <http://54.232.75.250/> (needs proxy and tls)
+- Instance Public: <http://54.232.75.250/> (needs proxy and tls).
 - Feel free to open issues/PRs with feedback or improvements.  
 
 --------------------------------------------------------------------------------
