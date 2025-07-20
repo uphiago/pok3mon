@@ -8,23 +8,21 @@ This repository demonstrates a Node.js application ("Pok3mon") deployed to an AW
 ## 1. Overview
 
 - **Application**:  
-  A Node.js app designed to demonstrate a minimal front end, built in JavaScript and served on port 3000 within a container.
+  - Node.js app designed to demonstrate a minimal front end, built in JavaScript and served on port 3000 within a container.
 
 - **Infrastructure**:  
-  Provisioned in AWS (region: sa‑east‑1) via Terraform.  
-  The root configuration calls the module **`infra/modules/compute/`**,  
-  which creates the EC2 instance, security group, Elastic IP and CloudWatch resources.
+  - Provisioned in AWS (sa‑east‑1) via Terraform.  
+  - Module `infra/modules/compute/` creates **EC2**, **security group**, **Elastic IP**, **CloudWatch Log Group & alarms** (CPU, 5xx, availability).
 
 - **CI/CD**:
-  Defined in GitHub Actions:  
   - Lint and test the code (ESLint + Vitest).  
   - Build and push a Docker image to GitHub Container Registry (GHCR).  
-  - Deploy automatically to the EC2 instance using AWS Systems Manager (SSM) commands.
+  - Deploy automatically via **AWS SSM** (health‑check pings before/after rollout).
 
 - **Reliability**:  
-  - Container resilience: Auto‑restarts the service after crashes or host reboots.
-  - Log access: Inspect docker and compose logs on the EC2 host or remotely via AWS SSM.
-  - Pipeline visibility: GitHub Actions displays build, test and deploy results; any failure stops the workflow, surfaces the error in the repo UI, and sends an email notification.
+  - Container auto‑restart (Docker Compose).  
+  - **Metrics & logs centralised in CloudWatch**; alarms paged via e‑mail.  
+  - Defined SLOs: Availability ≥ 99.5 %, 5xx ≤ 1 %, CPU < 80 % (see table below).
 
 --------------------------------------------------------------------------------
 ## 2. Repository Structure
@@ -148,11 +146,11 @@ A GitHub Actions workflow handles linting, testing, building, publishing, and de
 
 ### 6.3 Job: deploy
 
-1. **AWS Credentials**: Uses aws-actions/configure-aws-credentials@v4 with the necessary secrets.  
-2. **AWS SSM Command**:  
-   - Downloads the "docker-compose.yml" from the exact commit SHA in GitHub.  
-   - Logs into GHCR.  
-   - Runs `docker compose pull && docker compose up -d` on the remote EC2 instance via Systems Manager.  
+1. **AWS Credentials**: Uses aws-actions/configure-aws-credentials@v4 with the necessary secrets.
+2. **AWS SSM Command**:
+   - Downloads the "docker-compose.yml" from the exact commit SHA in GitHub.
+   - Logs into GHCR (no long‑lived secrets - **Instance ID is read via `terraform output` step**).
+   - Runs `docker compose pull && docker compose up -d` on the remote EC2 instance via Systems Manager.
    - Monitors success/failure, outputs logs from SSM.
    - The workflow waits with `aws ssm wait command-executed`. If the command status is not **Success**, the job fails automatically.
 
@@ -170,7 +168,7 @@ A GitHub Actions workflow handles linting, testing, building, publishing, and de
 ### 7.2 Logs
 
 - A **CloudWatch Logs Agent** ships container `stdout`/`stderr` to the log group  
-  **/aws/ec2/pok3mon‑app**.
+  **/aws/ec2/pok3mon‑app** (retention: 3 days).
 
 --------------------------------------------------------------------------------
 ## 8. Next Steps / Recommendations
@@ -184,7 +182,8 @@ A GitHub Actions workflow handles linting, testing, building, publishing, and de
 
 Thanks for checking out the Pok3mon Platform Challenge!
 
-- Repository URL: <https://github.com/uphiago/pok3mon>  
+- Repository URL: <https://github.com/uphiago/pok3mon>
+- Instance Public: <http://54.232.75.250/> (needs proxy and tls)
 - Feel free to open issues/PRs with feedback or improvements.  
 
 --------------------------------------------------------------------------------
