@@ -89,6 +89,7 @@ resource "aws_instance" "web" {
   instance_type          = var.instance_type
   key_name               = aws_key_pair.web.key_name
   vpc_security_group_ids = [aws_security_group.web.id]
+  iam_instance_profile   = "EC2SSMRole"
 
   root_block_device {
     encrypted = true
