@@ -128,7 +128,7 @@ jobs:
             "echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin",
             "export IMAGE_TAG=${IMAGE_TAG}",
             "docker compose pull",
-            "docker compose up -d --pull always",
+            "docker compose up -d --pull always"
           ]
         }
         EOF
