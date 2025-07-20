@@ -76,7 +76,8 @@ resource "aws_instance" "web" {
   instance_type          = var.instance_type
   key_name               = aws_key_pair.web.key_name
   vpc_security_group_ids = [aws_security_group.web.id]
-  iam_instance_profile   = "EC2SSMRole"
+  iam_instance_profile   = aws_iam_instance_profile.ssm_profile.name
+  subnet_id              = data.aws_subnets.default.ids[0]
 
   root_block_device {
     encrypted = true
@@ -100,6 +101,16 @@ resource "aws_eip" "web" {
 
 data "aws_iam_role" "existing_ec2_role" {
   name = "EC2SSMRole"
+}
+
+resource "aws_iam_instance_profile" "ssm_profile" {
+  name = "${var.project_name}-ssm-profile"
+  role = data.aws_iam_role.existing_ec2_role.name
+}
+
+resource "aws_iam_role_policy_attachment" "ssm_managed_core" {
+  role       = data.aws_iam_role.existing_ec2_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
 resource "aws_iam_role_policy_attachment" "cloudwatch_agent_policy" {

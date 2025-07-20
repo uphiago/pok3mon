@@ -4,3 +4,5 @@ output "security_group_id" { value = aws_security_group.web.id }
 output "log_group_name" { value = aws_cloudwatch_log_group.app_logs.name }
 output "vpc_id"     { value = data.aws_vpc.default.id }
 output "subnet_ids" { value = data.aws_subnets.default.ids }
+output "public_dns" { value = aws_eip.web.public_dns }
+output "ssm_managed_id" { value = aws_instance.web.id }
