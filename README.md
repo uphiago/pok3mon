@@ -1,4 +1,6 @@
 # Pok3mon Platform Challenge
+[![CI/CD](https://github.com/uphiago/pok3mon/actions/workflows/deploy.yml/badge.svg)](https://github.com/uphiago/pok3mon/actions/workflows/deploy.yml)
+
 
 This repository demonstrates a Node.js application ("Pok3mon") deployed to an AWS EC2 instance using Docker and Docker Compose, with infrastructure provisioning via Terraform. The CI/CD pipeline is managed by GitHub Actions, which handles building, testing, pushing, and remotely deploying the container image.
 
@@ -94,7 +96,7 @@ Below are two approaches to run the Pok3mon application on your local machine:
 
 1. Navigate to the Terraform directory:
    ```bash
-   cd terraform/
+   cd infra/
    ```
 2. Initialize Terraform:
    ```bash
@@ -143,23 +145,30 @@ A GitHub Actions workflow handles testing, building, publishing, and deploying t
 2. **AWS SSM Command**:  
    - Downloads the "docker-compose.yml" from the exact commit SHA in GitHub.  
    - Logs into GHCR.  
-   - Runs `docker compose pull && docker compose up -d --pull always` on the remote EC2 instance via Systems Manager.  
+   - Runs `docker compose pull && docker compose up -d` on the remote EC2 instance via Systems Manager.  
    - Monitors success/failure, outputs logs from SSM.
 
 --------------------------------------------------------------------------------
-## 7. Reliability & Observability (NEEDS REVIEW, NOT IMPLEMENTED)
+## 7. Reliability & Observability
 
-1. **SLIs/SLOs**:   ATTENTION! NOT IMPLEMENTED YET
-   - Availability: target 99% container uptime per month.  
-   - Error Rate: keep 5xx errors under 1% of total requests.  
+### 7.1 SLIs & SLOs
 
-2. **Logs**:
-   - By default, you can check Docker logs on the EC2 instance using `docker logs <pok3mon-container-id>`.
-   - Alternatively, you can attach CloudWatch or another logging solution for long-term analysis and alerting.
+| SLI | SLO Target | Implementation |
+|-----|------------|----------------|
+| **Availability** (2xx requests) | ≥ 99.5 % per month | CloudWatch Log Metric Filter `GoodReq` + alarm **pok3mon‑availability** |
+| **5xx Error Rate** | ≤ 1 % of total requests | Log Metric Filter `ErrorCount` + alarm **pok3mon‑5xx‑high** |
+| **CPU Utilization** | < 80 % for two 5‑minute periods | Alarm **pok3mon‑app‑high‑cpu** |
 
-3. **Alerts**: ATTENTION! NOT IMPLEMENTED YET
-   - Adding CloudWatch Alarms on CPU usage or container exit codes.  
-   - For sophisticated monitoring (APM, traces), consider third-party services or more advanced AWS features (e.g., ECS, EKS, or CloudWatch Container Insights).
+### 7.2 Logs
+
+- A **CloudWatch Logs Agent** ships container `stdout`/`stderr` to the log group  
+  **/aws/ec2/pok3mon‑app**.
+- Quick Insights query examples:  
+  ```sql
+  -- Availability: count 2xx responses
+  fields @timestamp, @message
+  | filter @message like /Returned 2\d{2}/
+  | stats count() as GoodReq by bin(1m)```
 
 --------------------------------------------------------------------------------
 ## 8. Next Steps / Recommendations
