@@ -182,7 +182,7 @@ A GitHub Actions workflow handles linting, testing, building, publishing, and de
 4. **Environment Replication**: Provision isolated copies of critical components for dev, stg and prod to guarantee environment parity and avoid configuration drift (sorry about dev+stg, time gap issue xD).
 
 
-Thanks for checking out the Pok3mon Platform Challenge! 
+Thanks for checking out the Pok3mon Platform Challenge!
 
 - Repository URL: <https://github.com/uphiago/pok3mon>  
 - Feel free to open issues/PRs with feedback or improvements.  
